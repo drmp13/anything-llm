@@ -205,6 +205,7 @@ export default function ChatContainer({ workspace, knownHistory = [] }) {
         });
 
         socket.addEventListener("message", (event) => {
+          console.log('heyho')
           setLoadingResponse(true);
           try {
             handleSocketResponse(event, setChatHistory);
@@ -213,6 +214,7 @@ export default function ChatContainer({ workspace, knownHistory = [] }) {
             window.dispatchEvent(new CustomEvent(AGENT_SESSION_END));
             socket.close();
           }
+          console.log('heyhoo')
           setLoadingResponse(false);
         });
 

@@ -12,6 +12,7 @@ async function grepAgents({
   user = null,
   thread = null,
 }) {
+  return false;
   const agentHandles = WorkspaceAgentInvocation.parseAgents(message);
   if (agentHandles.length > 0) {
     const { invocation: newInvocation } = await WorkspaceAgentInvocation.new({

@@ -1,6 +1,7 @@
 import { THREAD_RENAME_EVENT } from "@/components/Sidebar/ActiveWorkspaces/ThreadContainer";
 export const ABORT_STREAM_EVENT = "abort-chat-stream";
 
+
 // For handling of chat responses in the frontend by their various types.
 export default function handleChat(
   chatResult,
@@ -70,6 +71,38 @@ export default function handleChat(
     ]);
     _chatHistory.push({
       uuid,
+      content: textResponse,
+      role: "assistant",
+      sources,
+      closed: close,
+      error,
+      animate: !close,
+      pending: false,
+      chatId,
+      metrics,
+    });
+  }else if (type === "rechartVisualize") {
+    setLoadingResponse(false);
+    setChatHistory([
+      ...remHistory,
+      {
+        uuid,
+        type: 'rechartVisualize',
+        content: textResponse,
+        role: "assistant",
+        sources,
+        closed: close,
+        error,
+        animate: !close,
+        pending: false,
+        chatId,
+        metrics,
+      },
+    ]);
+    
+    _chatHistory.push({
+      uuid,
+      type: 'rechartVisualize',
       content: textResponse,
       role: "assistant",
       sources,

@@ -876,6 +876,9 @@ function workspaceEndpoints(app) {
       handleFileUpload,
     ],
     async function (request, response) {
+      // DRMP
+      response.sendStatus(400).end();
+      return;
       try {
         const { slug = null } = request.params;
         const user = await userFromSession(request, response);

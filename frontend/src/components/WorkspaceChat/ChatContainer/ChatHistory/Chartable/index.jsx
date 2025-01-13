@@ -57,21 +57,56 @@ export function Chartable({ props, workspace }) {
 
   const color = null;
   const showLegend = true;
-  const content =
+  console.log('content before')
+  console.log(props.content)
+  let content =
     typeof props.content === "string"
       ? safeJsonParse(props.content, null)
       : props.content;
   if (content === null) return null;
 
+  console.log('content after')
+  console.log(content)
+  // DRMP FIX
+  if(typeof content.dataset === "string"){
+    console.log('before')
+    console.log(content.dataset)
+    content.dataset = content.dataset.replace(/'/g, '"');
+    console.log('after')
+    console.log(content.dataset)
+  }
+  
+
   const chartType = content?.type?.toLowerCase();
-  const data =
+  let data =
     typeof content.dataset === "string"
       ? safeJsonParse(content.dataset, [])
       : content.dataset;
+
+  console.log("before fix")
+  console.log(data)
+  if(data.length<1){
+    // DRMP try fix
+    content.dataset = content.dataset.replace(/'/g, '"');
+    if(chartType=="bar"){
+      content.dataset = `[${content.dataset}]`
+    }else if(chartType=="pie"){
+      content.dataset=content.dataset.replace('["','[{"')
+    }
+
+    data =
+    typeof content.dataset === "string"
+      ? safeJsonParse(content.dataset, [])
+      : content.dataset;
+  }
+
+  console.log("drmp fix")
+  console.log(data)
   const value = data.length > 0 ? Object.keys(data[0])[1] : "value";
   const title = content?.title;
 
   const renderChart = () => {
+    console.log('renderchart')
     switch (chartType) {
       case "area":
         return (

@@ -192,6 +192,7 @@ export default function ChatHistory({
         }
 
         if (props.type === "rechartVisualize" && !!props.content) {
+          console.log('masuk sini')
           return (
             <Chartable key={props.uuid} workspace={workspace} props={props} />
           );

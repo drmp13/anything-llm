@@ -4,6 +4,14 @@ const { WorkspaceChats } = require("../../models/workspaceChats");
 const { getVectorDbClass, getLLMProvider } = require("../helpers");
 const { writeResponseChunk } = require("../helpers/chat/responses");
 const { grepAgents } = require("./agents");
+const {getAgent,appendWhereClause,updateTableName} = require('../agents/mindsdb')
+const jbconfig = require('../../config')
+
+// Configuration
+const tableName = 'clickhouse_analytic.sales_cube';
+const companyId = 57971;
+const language = 'ID';
+
 const {
   grepCommand,
   VALID_COMMANDS,
@@ -13,6 +21,7 @@ const {
 } = require("./index");
 
 const VALID_CHAT_MODE = ["chat", "query"];
+
 
 async function streamChatWithWorkspace(
   response,
@@ -47,6 +56,7 @@ async function streamChatWithWorkspace(
     workspace,
     thread,
   });
+
   if (isAgentChat) return;
 
   const LLMConnector = getLLMProvider({
@@ -211,84 +221,377 @@ async function streamChatWithWorkspace(
 
   // Compress & Assemble message to ensure prompt passes token limit with room for response
   // and build system messages based on inputs and history.
-  const messages = await LLMConnector.compressMessages(
-    {
-      systemPrompt: chatPrompt(workspace),
-      userPrompt: updatedMessage,
-      contextTexts,
-      chatHistory,
-      attachments,
-    },
-    rawHistory
-  );
 
-  // If streaming is not explicitly enabled for connector
-  // we do regular waiting of a response and send a single chunk.
-  if (LLMConnector.streamingEnabled() !== true) {
-    console.log(
-      `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
+  
+  if(workspace.slug=='testing'){
+    // override dari sini
+    console.log('DRMP HERE')
+    console.log(updatedMessage)
+    // DISINI, 
+
+    
+
+    // writeResponseChunk(response, {
+    //   uuid,
+    //   sources,
+    //   type: "rechartVisualize",
+    //   textResponse: JSON.stringify({
+    //     "type": "pie",
+    //     "dataset": "[\"name\":\"Asia\", \"value\": 44.57}, {\"name\":\"Africa\", \"value\": 20.61}, {\"name\":\"Eropa\", \"value\": 8.53}, {\"name\":\"Amerika Utara\", \"value\": 6.17}, {\"name\":\"Oseania\", \"value\": 0.28}]",
+    //     "title": "Benua Terbesar Dunia",
+    //     "caption": "Berikut adalah top 5 benua terbesar dalam bentuk pie chart:\n\n Pie Chart:\n```\n +---------------------------------------+\n | Asia |\n | (44,57%) |\n +---------------------------------------+\n | Afrika |\n | (20,11%) |\n +---------------------------------------+\n | Eropa |\n | (9,71%) |\n +---------------------------------------+\n | Amerika Selatan |\n | (8,10%) |\n +---------------------------------------+\n | Oseania |\n | (2,01%) |\n +---------------------------------------+\n | Australia dan Pasifik |\n | (15,60%) |\n +---------------------------------------+\n```\nTop 5 benua terbesar di dunia berdasarkan luas wilayahnya adalah:\n\n1. Asia (44,57%)\n2. Afrika (20,11%)\n3. Amerika Selatan (8,10%)\n4. Oseania (2,01%)\n5. Australia dan Pasifik (15,60%)"
+    //   }),
+    //   close:false,
+    //   error: false,
+    //   metrics,
+    // });
+
+    // const { chat } = await WorkspaceChats.new({
+    //   workspaceId: workspace.id,
+    //   prompt: message,
+    //   response: {
+    //     text: JSON.stringify({
+    //       "type": "pie",
+    //       "dataset": "[\"name\":\"Asia\", \"value\": 44.57}, {\"name\":\"Africa\", \"value\": 20.61}, {\"name\":\"Eropa\", \"value\": 8.53}, {\"name\":\"Amerika Utara\", \"value\": 6.17}, {\"name\":\"Oseania\", \"value\": 0.28}]",
+    //       "title": "Benua Terbesar Dunia",
+    //       "caption": "Berikut adalah top 5 benua terbesar dalam bentuk pie chart:\n\n Pie Chart:\n```\n +---------------------------------------+\n | Asia |\n | (44,57%) |\n +---------------------------------------+\n | Afrika |\n | (20,11%) |\n +---------------------------------------+\n | Eropa |\n | (9,71%) |\n +---------------------------------------+\n | Amerika Selatan |\n | (8,10%) |\n +---------------------------------------+\n | Oseania |\n | (2,01%) |\n +---------------------------------------+\n | Australia dan Pasifik |\n | (15,60%) |\n +---------------------------------------+\n```\nTop 5 benua terbesar di dunia berdasarkan luas wilayahnya adalah:\n\n1. Asia (44,57%)\n2. Afrika (20,11%)\n3. Amerika Selatan (8,10%)\n4. Oseania (2,01%)\n5. Australia dan Pasifik (15,60%)"
+    //     }),
+    //     sources,
+    //     type: 'rechartVisualize',
+    //     attachments,
+    //     metrics,
+    //   },
+    //   threadId: thread?.id || null,
+    //   user,
+    // });
+
+    // writeResponseChunk(response, {
+    //   uuid,
+    //   type: "finalizeResponseStream",
+    //   close: true,
+    //   error: false,
+    //   metrics,
+    // });
+    // return;
+
+    console.log(contextTexts)
+    console.log(chatHistory)
+    console.log(attachments)
+    console.log(rawHistory)
+      
+    // writeResponseChunk(response, {
+    //   id: uuidv4(),
+    //   type: "abort",
+    //   textResponse: null,
+    //   sources: [],
+    //   close: true,
+    //   error: `Error test.`,
+    // });
+    // return;
+
+    
+    const mindsDBHTTP = await getAgent();
+    // TEXT2SQL
+    let text2sql = '';
+    const sqlMessagesHistory = [];
+    for (let i = 0; i < chatHistory.length; i += 2) {
+      if (chatHistory[i].role === "user" && chatHistory[i + 1]?.role === "assistant") {
+        sqlMessagesHistory.push({
+          question: chatHistory[i].content,
+          answer: chatHistory[i + 1].content
+        });
+      }
+    }
+    
+    console.log('sqlMessagesHistory')
+    console.log(sqlMessagesHistory)
+    try{
+      const text2sqlGet = await mindsDBHTTP.post(jbconfig.mindsdb_host+'/api/projects/mindsdb/agents/salescube_order_agent/completions',{
+        messages: [
+          ...sqlMessagesHistory,
+          {
+            question: updatedMessage,
+            answer: null
+          }
+        ]
+      },{
+        headers: {
+          'Content-Type': 'application/json'
+        },
+      })
+
+      if(text2sqlGet.data?.message?.content){
+        text2sql=text2sqlGet.data?.message?.content;
+      }
+      
+    }catch(err){
+      
+      console.log('failed fetch text2sql')
+      console.log(err.response)
+    }
+    
+
+    console.log('text2sql')
+    console.log(text2sql)
+
+//     CREATE USER salescube_only_user IDENTIFIED WITH sha256_password BY 'testing_password';
+
+// CREATE ROLE salescube_only;
+// GRANT SELECT (uuid,item_id,salesmen_name,internal_status,doc_no,ref_no,item_code,item_name,brand_name,item_category_name,channel_type,channel_name,store_name,s_city,s_province,shipper,modal,margin,diskon,ppn,qty,transaction_date,penjualan,company_id) ON analytic.sales_cube TO salescube_only;
+
+// GRANT salescube_only TO salescube_only_user;
+    
+
+    // Extract SQL Query Block
+    const queryMatch = text2sql.match(/```sql\s*([\s\S]*?)\s*```/);
+    let queryResult 
+    if (queryMatch) {
+      let query = queryMatch[1].trim();
+
+      console.log("\nExtracted SQL Query:");
+      console.log(query);
+
+      console.log("\nModified Query:");
+      query = updateTableName(query,tableName);
+      query = appendWhereClause(query, `company_id='${companyId}'`,tableName);
+      console.log(query);
+
+      console.log("\nResult:");
+      try{
+        const result = await mindsDBHTTP.post(jbconfig.mindsdb_host+'/api/sql/query',{
+          "query": query
+        },{
+          headers: {
+            'Content-Type': 'application/json'
+          },
+        })
+
+        const httpQueryResult = result.data;
+        console.log(httpQueryResult)
+        if(httpQueryResult?.type=='table'){
+          queryResult={
+            column_names: httpQueryResult?.column_names,
+            data: httpQueryResult?.data
+          }
+        }else{
+          writeResponseChunk(response, {
+            id: uuidv4(),
+            type: "abort",
+            textResponse: null,
+            sources: [],
+            close: true,
+            error: `Error query.`,
+          });
+          return;
+        }
+      }catch(err){
+        console.log('error get data from query')
+        writeResponseChunk(response, {
+          id: uuidv4(),
+          type: "abort",
+          textResponse: null,
+          sources: [],
+          close: true,
+          error: `error get data from query`,
+        });
+        return;
+      }      
+    }else{
+      writeResponseChunk(response, {
+        id: uuidv4(),
+        type: "abort",
+        textResponse: null,
+        sources: [],
+        close: true,
+        error: `SQL error. Try again later.`,
+      });
+      return;
+    }
+
+    if(!queryResult){
+      writeResponseChunk(response, {
+        id: uuidv4(),
+        type: "abort",
+        textResponse: null,
+        sources: [],
+        close: true,
+        error: `SQL error. Try again later.`,
+      });
+      return;
+    }
+
+    console.log('queryResult')
+    console.log(queryResult)
+
+    const messages = await LLMConnector.compressMessages(
+      {
+        systemPrompt: `You are an AI tasked with summarization. I will give you prompt with this format [LANG]xxx;[Question]xxx;[Result]xxx.
+        For example if the prompt is:
+        [LANG]ID;[Question]How many sales in 2022?;[Result]total_sales 1000000, so the expected output: is "Total penjualan pada tahun 2022 adalah 1.000.000", remember the output is summarization based on your observation.`,
+        userPrompt: `[LANG]${language};[Question]${updatedMessage};[Result]${JSON.stringify(queryResult)}`,
+        contextTexts,
+        chatHistory,
+        attachments,
+      },
+      rawHistory
     );
-    const { textResponse, metrics: performanceMetrics } =
-      await LLMConnector.getChatCompletion(messages, {
+  
+    console.log('DRMP HERE COMPRESS')
+    console.log(messages)
+  
+    // If streaming is not explicitly enabled for connector
+    // we do regular waiting of a response and send a single chunk.
+    if (LLMConnector.streamingEnabled() !== true) {
+      console.log(
+        `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
+      );
+      const { textResponse, metrics: performanceMetrics } =
+        await LLMConnector.getChatCompletion(messages, {
+          temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
+        });
+  
+      completeText = textResponse;
+      metrics = performanceMetrics;
+      writeResponseChunk(response, {
+        uuid,
+        sources,
+        type: "textResponseChunk",
+        textResponse: completeText,
+        close: true,
+        error: false,
+        metrics,
+      });
+    } else {
+      const stream = await LLMConnector.streamGetChatCompletion(messages, {
         temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
       });
-
-    completeText = textResponse;
-    metrics = performanceMetrics;
-    writeResponseChunk(response, {
-      uuid,
-      sources,
-      type: "textResponseChunk",
-      textResponse: completeText,
-      close: true,
-      error: false,
-      metrics,
-    });
-  } else {
-    const stream = await LLMConnector.streamGetChatCompletion(messages, {
-      temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
-    });
-    completeText = await LLMConnector.handleStream(response, stream, {
-      uuid,
-      sources,
-    });
-    metrics = stream.metrics;
-  }
-
-  if (completeText?.length > 0) {
-    const { chat } = await WorkspaceChats.new({
-      workspaceId: workspace.id,
-      prompt: message,
-      response: {
-        text: completeText,
+      completeText = await LLMConnector.handleStream(response, stream, {
+        uuid,
         sources,
-        type: chatMode,
-        attachments,
+      });
+      metrics = stream.metrics;
+    }
+  
+    if (completeText?.length > 0) {
+      const { chat } = await WorkspaceChats.new({
+        workspaceId: workspace.id,
+        prompt: message,
+        response: {
+          text: completeText,
+          sources,
+          type: chatMode,
+          attachments,
+          metrics,
+        },
+        threadId: thread?.id || null,
+        user,
+      });
+  
+      writeResponseChunk(response, {
+        uuid,
+        type: "finalizeResponseStream",
+        close: true,
+        error: false,
+        chatId: chat.id,
         metrics,
-      },
-      threadId: thread?.id || null,
-      user,
-    });
-
+      });
+      return;
+    }
+  
     writeResponseChunk(response, {
       uuid,
       type: "finalizeResponseStream",
       close: true,
       error: false,
-      chatId: chat.id,
+      metrics,
+    });
+    return;
+  }else{
+    // default
+    const messages = await LLMConnector.compressMessages(
+      {
+        systemPrompt: chatPrompt(workspace),
+        userPrompt: updatedMessage,
+        contextTexts,
+        chatHistory,
+        attachments,
+      },
+      rawHistory
+    );
+  
+
+  
+    // If streaming is not explicitly enabled for connector
+    // we do regular waiting of a response and send a single chunk.
+    if (LLMConnector.streamingEnabled() !== true) {
+      console.log(
+        `\x1b[31m[STREAMING DISABLED]\x1b[0m Streaming is not available for ${LLMConnector.constructor.name}. Will use regular chat method.`
+      );
+      const { textResponse, metrics: performanceMetrics } =
+        await LLMConnector.getChatCompletion(messages, {
+          temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
+        });
+  
+      completeText = textResponse;
+      metrics = performanceMetrics;
+      writeResponseChunk(response, {
+        uuid,
+        sources,
+        type: "textResponseChunk",
+        textResponse: completeText,
+        close: true,
+        error: false,
+        metrics,
+      });
+    } else {
+      const stream = await LLMConnector.streamGetChatCompletion(messages, {
+        temperature: workspace?.openAiTemp ?? LLMConnector.defaultTemp,
+      });
+      completeText = await LLMConnector.handleStream(response, stream, {
+        uuid,
+        sources,
+      });
+      metrics = stream.metrics;
+    }
+  
+    if (completeText?.length > 0) {
+      const { chat } = await WorkspaceChats.new({
+        workspaceId: workspace.id,
+        prompt: message,
+        response: {
+          text: completeText,
+          sources,
+          type: chatMode,
+          attachments,
+          metrics,
+        },
+        threadId: thread?.id || null,
+        user,
+      });
+  
+      writeResponseChunk(response, {
+        uuid,
+        type: "finalizeResponseStream",
+        close: true,
+        error: false,
+        chatId: chat.id,
+        metrics,
+      });
+      return;
+    }
+  
+    writeResponseChunk(response, {
+      uuid,
+      type: "finalizeResponseStream",
+      close: true,
+      error: false,
       metrics,
     });
     return;
   }
+  
 
-  writeResponseChunk(response, {
-    uuid,
-    type: "finalizeResponseStream",
-    close: true,
-    error: false,
-    metrics,
-  });
-  return;
+  
 }
 
 module.exports = {
